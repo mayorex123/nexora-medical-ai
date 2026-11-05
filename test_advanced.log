@@ -1,0 +1,6 @@
+Nov  5 14:00:00 kali useradd[999]: new user: name=hacker, UID=1001, GID=1001, home=/home/hacker, shell=/bin/bash
+Nov  5 14:01:00 kali sudo: pam_unix(sudo:auth): authentication failure; logname=kali uid=1000 euid=0 tty=/dev/pts/0 ruser=kali rhost=  user=kali
+Nov  5 14:02:00 kali sudo: pam_unix(sudo:auth): authentication failure; logname=kali uid=1000 euid=0 tty=/dev/pts/0 ruser=kali rhost=  user=kali
+Nov  5 15:00:00 kali useradd[999]: new user: name=shadow_admin, UID=1002, GID=1002, home=/home/shadow_admin, shell=/bin/bash
+Nov  5 15:00:00 kali useradd[999]: new user: name=shadow_admin, UID=1002, GID=1002, home=/home/shadow_admin, shell=/bin/bash
+Nov  5 15:05:00 kali useradd[999]: new user: name=backdoor, UID=1003, GID=1003, home=/home/backdoor, shell=/bin/bash
