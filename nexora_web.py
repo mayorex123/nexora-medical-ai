@@ -28,9 +28,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- AUTHENTICATION SETUP ---
-# For a real app, you would store this in a database. For now, we use a local file.
 if not os.path.exists('config.yaml'):
-    hashed_passwords = stauth.Hasher(['nexora123']).generate()
+    # Use the new hash_list method
+    hashed_passwords = stauth.Hasher.hash_list(['nexora123'])
     config = {
         'credentials': {'usernames': {'demo_user': {'email': 'demo@example.com', 'name': 'Demo User', 'password': hashed_passwords[0]}}},
         'cookie': {'expiry_days': 30, 'key': 'nexora_secret_key', 'name': 'nexora_cookie'}
@@ -50,7 +50,6 @@ authenticator = stauth.Authenticate(
 
 # --- LANDING PAGE & LOGIN ---
 if st.session_state.get("authentication_status") is not True:
-    # Beautiful Landing Page
     st.markdown("<h1 style='text-align: center; color: #4CAF50;'>🩺 NEXORA Medical AI</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 1.2em;'>Your personal, professional AI health assistant.</p>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -58,7 +57,6 @@ if st.session_state.get("authentication_status") is not True:
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         st.info("🔒 **Secure Login Required**")
-        # Render the login widget
         authenticator.login()
     
     if st.session_state.get("authentication_status") is False:
@@ -67,10 +65,9 @@ if st.session_state.get("authentication_status") is not True:
         st.warning('Please enter your username and password to access the AI.')
         
     st.markdown("<br><br><p style='text-align: center; color: gray;'>Demo Login: username: <b>demo_user</b> | password: <b>nexora123</b></p>", unsafe_allow_html=True)
-    st.stop() # Stop the app here if not logged in
+    st.stop()
 
 # --- MAIN APP (Only visible if logged in) ---
-# Sidebar with user info and logout
 with st.sidebar:
     st.markdown(f"### Welcome, {st.session_state['name']} 👋")
     st.markdown("---")
@@ -79,7 +76,6 @@ with st.sidebar:
     st.markdown("---")
     authenticator.logout('Logout', 'sidebar')
 
-# Main Chat Interface
 st.title("🩺 NEXORA Medical AI")
 st.write("Ask me anything about symptoms, treatments, or general health.")
 
@@ -95,13 +91,11 @@ if "messages" not in st.session_state:
         {"role": "system", "content": "You are NEXORA, an advanced Medical AI Assistant. Always include a brief disclaimer that you are an AI, not a doctor. Keep answers informative, structured, and easy to understand."}
     ]
 
-# Display chat history
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# Accept input
 if prompt := st.chat_input("Describe your symptoms or ask a medical question..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     save_message("user", prompt)
