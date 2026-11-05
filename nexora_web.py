@@ -10,7 +10,7 @@ load_dotenv()
 # Set page config
 st.set_page_config(page_title="NEXORA Medical AI", page_icon="🩺", layout="wide")
 
-# --- UNIVERSAL CUSTOM CSS (Desktop & Mobile) ---
+# --- UNIVERSAL CUSTOM CSS (Fixes layout, colors, and input) ---
 st.markdown("""
     <style>
     /* 1. Main background & text color */
@@ -19,15 +19,18 @@ st.markdown("""
         color: #FAFAFA; 
     }
     
-    /* 2. Chat message bubbles */
+    /* 2. Chat message bubbles - fits screen perfectly */
     .stChatMessage { 
         background-color: #1E232B; 
         border-radius: 12px; 
         padding: 15px; 
         margin-bottom: 10px; 
+        width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-wrap: break-word !important;
     }
     
-    /* 3. Force ALL text inside chat bubbles to be bright white (fixes dark tables) */
+    /* 3. Force ALL text inside chat bubbles to be bright white */
     .stChatMessage p, 
     .stChatMessage li, 
     .stChatMessage span, 
@@ -36,13 +39,17 @@ st.markdown("""
     .stChatMessage th,
     .stChatMessage td {
         color: #FAFAFA !important;
+        font-size: 1rem;
     }
 
-    /* 4. Style tables to look professional */
+    /* 4. Fix tables so they scroll sideways on mobile instead of breaking the screen */
     .stChatMessage table {
         border-collapse: collapse;
         width: 100%;
         margin-top: 10px;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
     }
     .stChatMessage th, .stChatMessage td {
         border: 1px solid #444;
@@ -62,20 +69,42 @@ st.markdown("""
     header { 
         visibility: hidden; 
     }
+
+    /* 7. THE FIX: Input Box Text Visibility */
+    /* Targets the actual text box and makes typed text white */
+    div[data-baseweb="input"] > div > input {
+        color: #FFFFFF !important;
+        background-color: #1E232B !important;
+        font-size: 16px !important;
+    }
     
-    /* 7. MOBILE SPECIFIC FIXES */
+    /* Lighter placeholder text */
+    div[data-baseweb="input"] > div > input::placeholder {
+        color: #A0AAB5 !important;
+    }
+    
+    /* 8. MOBILE SPECIFIC FIXES */
     @media (max-width: 768px) {
-        /* Hide the sidebar on mobile so the chat takes full width */
+        /* Hide sidebar on mobile */
         [data-testid="stSidebar"] { 
             display: none; 
         }
         
-        /* Make titles smaller on mobile */
+        /* Adjust title size */
         h1 { 
-            font-size: 1.8rem !important; 
+            font-size: 1.6rem !important; 
+            text-align: center;
         }
         
-        /* Fix the chat input box to stay at the bottom above the keyboard */
+        /* Make chat messages narrower on mobile */
+        .stChatMessage { 
+            padding: 10px !important; 
+            font-size: 0.95rem !important; 
+            margin-left: 5px !important;
+            margin-right: 5px !important;
+        }
+        
+        /* Fix the chat input to the bottom */
         .stChatInput { 
             position: fixed; 
             bottom: 0; 
@@ -88,7 +117,9 @@ st.markdown("""
         
         /* Add space at the bottom so the input doesn't hide the last message */
         .block-container { 
-            padding-bottom: 90px !important; 
+            padding-bottom: 90px !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
         }
     }
     </style>
