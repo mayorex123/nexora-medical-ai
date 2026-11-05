@@ -1,5 +1,8 @@
 import streamlit as st
 import os
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
 from groq import Groq
 from dotenv import load_dotenv
 from nexora.memory.history import save_message
@@ -7,42 +10,99 @@ from nexora.memory.history import save_message
 # Load environment variables
 load_dotenv()
 
-# Set page config
-st.set_page_config(page_title="NEXORA Medical AI", page_icon="🩺", layout="centered")
+# Set page config with a custom icon and title
+st.set_page_config(page_title="NEXORA Medical AI", page_icon="🩺", layout="wide")
 
-# Custom CSS
+# Custom Premium CSS
 st.markdown("""
     <style>
-    .stApp { background-color: #121212; color: #e0e0e0; }
-    .stChatMessage { background-color: #1e1e1e; border-radius: 10px; }
+    /* Main background */
+    .stApp { background-color: #0E1117; color: #FAFAFA; }
+    /* Chat message styling */
+    .stChatMessage { background-color: #1E232B; border-radius: 12px; padding: 15px; margin-bottom: 10px; }
+    /* Sidebar styling */
+    [data-testid="stSidebar"] { background-color: #161B22; }
+    /* Hide the default Streamlit header */
+    header { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🩺 NEXORA Medical AI")
-st.write("Your personal, professional AI health assistant.")
+# --- AUTHENTICATION SETUP ---
+# For a real app, you would store this in a database. For now, we use a local file.
+if not os.path.exists('config.yaml'):
+    hashed_passwords = stauth.Hasher(['nexora123']).generate()
+    config = {
+        'credentials': {'usernames': {'demo_user': {'email': 'demo@example.com', 'name': 'Demo User', 'password': hashed_passwords[0]}}},
+        'cookie': {'expiry_days': 30, 'key': 'nexora_secret_key', 'name': 'nexora_cookie'}
+    }
+    with open('config.yaml', 'w') as file:
+        yaml.dump(config, file, default_flow_style=False)
 
-# Initialize the Groq Client securely
+with open('config.yaml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+)
+
+# --- LANDING PAGE & LOGIN ---
+if st.session_state.get("authentication_status") is not True:
+    # Beautiful Landing Page
+    st.markdown("<h1 style='text-align: center; color: #4CAF50;'>🩺 NEXORA Medical AI</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 1.2em;'>Your personal, professional AI health assistant.</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.info("🔒 **Secure Login Required**")
+        # Render the login widget
+        authenticator.login()
+    
+    if st.session_state.get("authentication_status") is False:
+        st.error('Username/password is incorrect')
+    elif st.session_state.get("authentication_status") is None:
+        st.warning('Please enter your username and password to access the AI.')
+        
+    st.markdown("<br><br><p style='text-align: center; color: gray;'>Demo Login: username: <b>demo_user</b> | password: <b>nexora123</b></p>", unsafe_allow_html=True)
+    st.stop() # Stop the app here if not logged in
+
+# --- MAIN APP (Only visible if logged in) ---
+# Sidebar with user info and logout
+with st.sidebar:
+    st.markdown(f"### Welcome, {st.session_state['name']} 👋")
+    st.markdown("---")
+    st.markdown("### ⚠️ Medical Disclaimer")
+    st.caption("NEXORA is an AI assistant, not a doctor. Always consult a qualified healthcare professional for medical advice.")
+    st.markdown("---")
+    authenticator.logout('Logout', 'sidebar')
+
+# Main Chat Interface
+st.title("🩺 NEXORA Medical AI")
+st.write("Ask me anything about symptoms, treatments, or general health.")
+
 api_key = os.getenv("GROQ_API_KEY")
 if not api_key:
-    st.error("API Key missing. Please check your .env file.")
+    st.error("API Key missing. Please check your .env file or Streamlit Secrets.")
     st.stop()
 
 client = Groq(api_key=api_key)
 
-# Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "system", "content": "You are NEXORA, an advanced Medical AI Assistant. Always include a brief disclaimer that you are an AI, not a doctor."}
+        {"role": "system", "content": "You are NEXORA, an advanced Medical AI Assistant. Always include a brief disclaimer that you are an AI, not a doctor. Keep answers informative, structured, and easy to understand."}
     ]
 
-# Display past messages
+# Display chat history
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# Accept user input
-if prompt := st.chat_input("Ask a medical question..."):
+# Accept input
+if prompt := st.chat_input("Describe your symptoms or ask a medical question..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     save_message("user", prompt)
     
@@ -50,7 +110,7 @@ if prompt := st.chat_input("Ask a medical question..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("NEXORA is thinking..."):
+        with st.spinner("Analyzing medical data..."):
             try:
                 response = client.chat.completions.create(
                     messages=st.session_state.messages,
