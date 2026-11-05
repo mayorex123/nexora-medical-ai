@@ -35,6 +35,9 @@ st.markdown("""
     /* Sidebar & Header */
     [data-testid="stSidebar"] { background-color: #161B22; }
     header { visibility: hidden; }
+    
+    /* HIDE THE STREAMLIT FOOTER TO PREVENT BLOCKING */
+    footer { visibility: hidden; }
 
     /* Input Box */
     div[data-baseweb="input"] > div > input { color: #FFFFFF !important; background-color: #1E232B !important; font-size: 16px !important; }
@@ -52,46 +55,43 @@ st.markdown("""
         [data-testid="stSidebar"] { display: none; }
         h1 { font-size: 1.6rem !important; text-align: center; }
         .stChatMessage { padding: 10px !important; font-size: 0.95rem !important; margin-left: 5px !important; margin-right: 5px !important; }
-        .stChatInput { position: fixed; bottom: 0; left: 0; right: 0; z-index: 999; padding: 10px; background-color: #0E1117; }
-        .block-container { padding-bottom: 90px !important; padding-left: 10px !important; padding-right: 10px !important; }
+        
+        /* Fix input position */
+        .stChatInput { position: fixed; bottom: 20px; left: 0; right: 0; z-index: 999; padding: 10px; background-color: #0E1117; }
+        
+        /* Massive bottom padding to keep it away from the Manage App button */
+        .block-container { padding-bottom: 120px !important; padding-left: 10px !important; padding-right: 10px !important; }
+        
+        /* Hide Manage App button visually (it can still be accessed via the menu) */
+        div[data-testid="stStatusWidget"] { display: none; }
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- UNIQUE FEATURE: SMART TRIAGE & BODY MAP ---
+# --- SMART TRIAGE ---
 LOGO_URL = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=200&auto=format&fit=crop"
 
-# Initialize Chat History
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "system", "content": "You are NEXORA, an advanced Medical AI Assistant. Always include a brief disclaimer that you are an AI, not a doctor. Keep answers informative, structured, and easy to understand."}
     ]
 
-# Sidebar with Body Map
 with st.sidebar:
     st.image(LOGO_URL, use_container_width=True) 
     st.markdown("### 🩺 NEXORA Medical AI")
     st.markdown("---")
-    
-    # BODY MAP
     st.markdown("#### 🧍 Quick Triage")
     st.caption("Click a body part to start a focused analysis.")
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🧠 Head"):
-            st.session_state.triage_prompt = "I am experiencing a headache or head-related issue. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🫁 Chest"):
-            st.session_state.triage_prompt = "I am experiencing chest pain or breathing issues. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🦵 Legs"):
-            st.session_state.triage_prompt = "I am experiencing leg pain or mobility issues. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🧠 Head"): st.session_state.triage_prompt = "I am experiencing a headache or head-related issue. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🫁 Chest"): st.session_state.triage_prompt = "I am experiencing chest pain or breathing issues. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🦵 Legs"): st.session_state.triage_prompt = "I am experiencing leg pain or mobility issues. Please ask me 3 follow-up questions to narrow down the cause."
     with col2:
-        if st.button("🤢 Stomach"):
-            st.session_state.triage_prompt = "I am experiencing stomach pain or digestive issues. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🦴 Back"):
-            st.session_state.triage_prompt = "I am experiencing back pain. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🩸 Skin"):
-            st.session_state.triage_prompt = "I am experiencing a skin rash or issue. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🤢 Stomach"): st.session_state.triage_prompt = "I am experiencing stomach pain or digestive issues. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🦴 Back"): st.session_state.triage_prompt = "I am experiencing back pain. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🩸 Skin"): st.session_state.triage_prompt = "I am experiencing a skin rash or issue. Please ask me 3 follow-up questions to narrow down the cause."
 
     st.markdown("---")
     st.markdown("### ⚠️ Disclaimer")
@@ -111,25 +111,22 @@ st.write("Welcome! Ask me anything about symptoms, treatments, or general health
 
 api_key = os.getenv("GROQ_API_KEY")
 if not api_key:
-    st.error("API Key missing. Please check your .env file or Streamlit Secrets.")
+    st.error("API Key missing.")
     st.stop()
 
 client = Groq(api_key=api_key)
 
-# Display chat history
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# --- HANDLE TRIAGE PROMPT ---
 if "triage_prompt" in st.session_state:
     prompt = st.session_state.triage_prompt
-    del st.session_state.triage_prompt # Clear it so it only fires once
+    del st.session_state.triage_prompt 
 else:
     prompt = st.chat_input("Describe your symptoms or ask a medical question...")
 
-# Accept input
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
     save_message("user", prompt)
