@@ -4,7 +4,6 @@ import base64
 from groq import Groq
 from dotenv import load_dotenv
 from nexora.memory.history import save_message
-import streamlit.components.v1 as components
 
 # Load environment variables
 load_dotenv()
@@ -20,15 +19,26 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #161B22; }
     header { visibility: hidden; }
     footer { visibility: hidden; }
-    div[data-baseweb="input"] > div > input { color: #FFFFFF !important; background-color: #1E232B !important; font-size: 16px !important; }
+    
+    /* FIX ANDROID CHAT INPUT TEXT VISIBILITY */
+    div[data-baseweb="input"] > div > input { 
+        color: #FFFFFF !important; 
+        background-color: #1E232B !important; 
+        font-size: 16px !important; 
+    }
     div[data-baseweb="input"] > div > input::placeholder { color: #A0AAB5 !important; }
+    /* Force chat input text area to be visible on all devices */
+    textarea[data-testid="stChatInputTextArea"] {
+        color: #FFFFFF !important;
+    }
+    
     .stButton > button { background-color: #1E232B; color: #FAFAFA; border: 1px solid #4CAF50; border-radius: 8px; width: 100%; transition: 0.3s; }
     .stButton > button:hover { background-color: #4CAF50; color: white; }
+    
     @media (max-width: 768px) {
         [data-testid="stSidebar"] { display: none; }
         h1 { font-size: 1.6rem !important; text-align: center; }
         .stChatMessage { padding: 10px !important; font-size: 0.95rem !important; margin-left: 5px !important; margin-right: 5px !important; }
-        .stChatInput { position: fixed; bottom: 20px; left: 0; right: 0; z-index: 999; padding: 10px; background-color: #0E1117; }
         .block-container { padding-bottom: 120px !important; padding-left: 10px !important; padding-right: 10px !important; }
         div[data-testid="stStatusWidget"] { display: none; }
     }
@@ -62,15 +72,11 @@ with st.sidebar:
         if st.button("🤢 Stomach"): st.session_state.triage_prompt = "I am experiencing stomach pain or digestive issues."
         if st.button("🦴 Back"): st.session_state.triage_prompt = "I am experiencing back pain."
         if st.button("🩸 Skin"): st.session_state.triage_prompt = "I am experiencing a skin rash or issue."
-
     st.markdown("---")
-    st.markdown("### ⚠️ Disclaimer")
-    st.caption("NEXORA is an AI assistant, not a doctor. Always consult a qualified healthcare professional.")
     if st.button("Clear Chat History", use_container_width=True):
         st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         st.rerun()
 
-# --- MAIN CHAT UI ---
 st.image(LOGO_URL, width=120) 
 st.title("🩺 NEXORA Medical AI")
 st.write("Welcome! Describe your symptoms, upload an image, or use voice input.")
@@ -82,7 +88,6 @@ if not api_key:
 
 client = Groq(api_key=api_key)
 
-# Display chat history (Text and Images)
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
@@ -90,67 +95,62 @@ for msg in st.session_state.messages:
             if "image" in msg:
                 st.image(msg["image"], width=300)
 
-# --- INPUT AREA (Files & Voice) ---
-col_file, col_voice = st.columns(2)
+# --- MULTIMODAL INPUT (Files + Voice inside Chat Box) ---
+# Using Streamlit's native accept_file puts the upload icon INSIDE the chat box
+chat_input = st.chat_input(
+    "Describe your symptoms...", 
+    accept_file=True, 
+    file_type=["jpg", "jpeg", "png"]
+)
 
-with col_file:
-    uploaded_file = st.file_uploader("📎 Attach an image (Rash, X-ray, Lab result)", type=["jpg", "jpeg", "png"])
-
-with col_voice:
-    st.markdown("🎙️ **Voice Input**")
-    # JavaScript to handle voice recognition in the browser
-    voice_html = """
-    <button onclick="startDictation()" style="background-color:#4CAF50;color:white;border:none;padding:10px;border-radius:5px;cursor:pointer;width:100%;">🎤 Click to Speak</button>
-    <p id="status" style="color:gray; font-size:12px;"></p>
+# Voice button as a tiny icon beside the chat input
+col1, col2 = st.columns([0.9, 0.1])
+with col2:
+    # Tiny microphone button (uses browser speech recognition)
+    voice_js = """
+    <button onclick="startVoice()" style="background:transparent;border:none;font-size:20px;cursor:pointer;" title="Voice Input">🎤</button>
     <script>
-    function startDictation() {
+    function startVoice() {
         if (window.hasOwnProperty('webkitSpeechRecognition')) {
-            var recognition = new webkitSpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = "en-US";
-            document.getElementById('status').innerHTML = "Listening...";
-            recognition.start();
-            recognition.onresult = function(e) {
-                document.getElementById('status').innerHTML = "Heard: " + e.results[0][0].transcript;
-                // Put the text into the Streamlit chat input
-                const textArea = window.parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
-                if (textArea) {
-                    textArea.value = e.results[0][0].transcript;
-                    textArea.dispatchEvent(new Event('input', { bubbles: true }));
+            var rec = new webkitSpeechRecognition();
+            rec.continuous = false;
+            rec.interimResults = false;
+            rec.lang = "en-US";
+            rec.start();
+            rec.onresult = function(e) {
+                const text = e.results[0][0].transcript;
+                // Find the chat textarea and inject text
+                const ta = window.parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
+                if (ta) {
+                    ta.value = text;
+                    ta.dispatchEvent(new Event('input', { bubbles: true }));
                 }
-                recognition.stop();
             };
-            recognition.onerror = function(e) {
-                document.getElementById('status').innerHTML = "Error occurred in recognition: " + e.error;
-                recognition.stop();
-            }
-        } else {
-            document.getElementById('status').innerHTML = "Voice recognition not supported in this browser.";
         }
     }
     </script>
     """
-    components.html(voice_html, height=100)
+    st.components.v1.html(voice_js, height=40)
 
-# --- HANDLE TRIAGE & CHAT INPUT ---
-if "triage_prompt" in st.session_state:
-    prompt = st.session_state.triage_prompt
-    del st.session_state.triage_prompt 
-else:
-    prompt = st.chat_input("Describe your symptoms or ask a medical question...")
+# --- HANDLE INPUT ---
+if chat_input or "triage_prompt" in st.session_state:
+    # Determine the prompt source
+    if "triage_prompt" in st.session_state:
+        prompt_text = st.session_state.triage_prompt
+        del st.session_state.triage_prompt
+        uploaded_file = None
+    else:
+        prompt_text = chat_input.text if chat_input else ""
+        uploaded_file = chat_input.files[0] if chat_input and chat_input.files else None
 
-# Process the prompt
-if prompt or uploaded_file:
-    user_content = prompt if prompt else "I have uploaded a medical image. Please analyze it."
+    user_content = prompt_text if prompt_text else "I have uploaded a medical image. Please analyze it."
     
-    # Process image if uploaded
+    # Process image
     image_data_uri = None
     if uploaded_file:
         base64_image = base64.b64encode(uploaded_file.read()).decode('utf-8')
         image_data_uri = f"data:image/jpeg;base64,{base64_image}"
 
-    # Add to session state and save
     user_msg = {"role": "user", "content": user_content}
     if image_data_uri:
         user_msg["image"] = image_data_uri
@@ -166,13 +166,11 @@ if prompt or uploaded_file:
     with st.chat_message("assistant"):
         with st.spinner("Doctor is analyzing..."):
             try:
-                # Format messages for Groq Vision API
                 api_messages = []
                 for m in st.session_state.messages:
                     if m["role"] == "system":
                         api_messages.append(m)
                     elif "image" in m:
-                        # Multi-modal format for images
                         api_messages.append({
                             "role": m["role"],
                             "content": [
@@ -183,10 +181,10 @@ if prompt or uploaded_file:
                     else:
                         api_messages.append(m)
 
-                # Use the Vision Model
+                # WORKING VISION MODEL (replaces the decommissioned one)
                 response = client.chat.completions.create(
                     messages=api_messages,
-                    model="llama-3.2-11b-vision-preview", # Model that can see images
+                    model="qwen/qwen3.6-27b", # Current multimodal model on Groq [citation:2]
                     temperature=0.4,
                     max_tokens=600
                 )
