@@ -35,8 +35,6 @@ st.markdown("""
     /* Sidebar & Header */
     [data-testid="stSidebar"] { background-color: #161B22; }
     header { visibility: hidden; }
-    
-    /* HIDE THE STREAMLIT FOOTER TO PREVENT BLOCKING */
     footer { visibility: hidden; }
 
     /* Input Box */
@@ -55,14 +53,8 @@ st.markdown("""
         [data-testid="stSidebar"] { display: none; }
         h1 { font-size: 1.6rem !important; text-align: center; }
         .stChatMessage { padding: 10px !important; font-size: 0.95rem !important; margin-left: 5px !important; margin-right: 5px !important; }
-        
-        /* Fix input position */
         .stChatInput { position: fixed; bottom: 20px; left: 0; right: 0; z-index: 999; padding: 10px; background-color: #0E1117; }
-        
-        /* Massive bottom padding to keep it away from the Manage App button */
         .block-container { padding-bottom: 120px !important; padding-left: 10px !important; padding-right: 10px !important; }
-        
-        /* Hide Manage App button visually (it can still be accessed via the menu) */
         div[data-testid="stStatusWidget"] { display: none; }
     }
     </style>
@@ -71,10 +63,17 @@ st.markdown("""
 # --- SMART TRIAGE ---
 LOGO_URL = "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?q=80&w=200&auto=format&fit=crop"
 
+# The new "Doctor Protocol" System Prompt
+SYSTEM_PROMPT = """You are NEXORA, an expert Medical AI Assistant acting like a real doctor.
+CRITICAL RULES:
+1. NEVER give a diagnosis or a list/table of possibilities immediately. 
+2. When a user mentions a symptom, you MUST ask 1 to 2 follow-up questions first (e.g., "How long have you had this?", "Is the pain sharp or dull?", "Does it radiate anywhere?").
+3. Keep your responses conversational, warm, and brief. Do not use tables.
+4. ONLY after you have asked at least 2 sets of follow-up questions and gathered enough information should you provide a possible explanation. 
+5. Always include a brief disclaimer that you are an AI, not a doctor."""
+
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "You are NEXORA, an advanced Medical AI Assistant. Always include a brief disclaimer that you are an AI, not a doctor. Keep answers informative, structured, and easy to understand."}
-    ]
+    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 with st.sidebar:
     st.image(LOGO_URL, use_container_width=True) 
@@ -85,13 +84,13 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🧠 Head"): st.session_state.triage_prompt = "I am experiencing a headache or head-related issue. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🫁 Chest"): st.session_state.triage_prompt = "I am experiencing chest pain or breathing issues. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🦵 Legs"): st.session_state.triage_prompt = "I am experiencing leg pain or mobility issues. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🧠 Head"): st.session_state.triage_prompt = "I am experiencing a headache or head-related issue."
+        if st.button("🫁 Chest"): st.session_state.triage_prompt = "I am experiencing chest pain or breathing issues."
+        if st.button("🦵 Legs"): st.session_state.triage_prompt = "I am experiencing leg pain or mobility issues."
     with col2:
-        if st.button("🤢 Stomach"): st.session_state.triage_prompt = "I am experiencing stomach pain or digestive issues. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🦴 Back"): st.session_state.triage_prompt = "I am experiencing back pain. Please ask me 3 follow-up questions to narrow down the cause."
-        if st.button("🩸 Skin"): st.session_state.triage_prompt = "I am experiencing a skin rash or issue. Please ask me 3 follow-up questions to narrow down the cause."
+        if st.button("🤢 Stomach"): st.session_state.triage_prompt = "I am experiencing stomach pain or digestive issues."
+        if st.button("🦴 Back"): st.session_state.triage_prompt = "I am experiencing back pain."
+        if st.button("🩸 Skin"): st.session_state.triage_prompt = "I am experiencing a skin rash or issue."
 
     st.markdown("---")
     st.markdown("### ⚠️ Disclaimer")
@@ -99,15 +98,13 @@ with st.sidebar:
     st.markdown("---")
     
     if st.button("Clear Chat History", use_container_width=True):
-        st.session_state.messages = [
-            {"role": "system", "content": "You are NEXORA, an advanced Medical AI Assistant. Always include a brief disclaimer that you are an AI, not a doctor. Keep answers informative, structured, and easy to understand."}
-        ]
+        st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         st.rerun()
 
 # --- MAIN CHAT UI ---
 st.image(LOGO_URL, width=120) 
 st.title("🩺 NEXORA Medical AI")
-st.write("Welcome! Ask me anything about symptoms, treatments, or general health.")
+st.write("Welcome! I am your AI doctor. What symptoms are you experiencing today?")
 
 api_key = os.getenv("GROQ_API_KEY")
 if not api_key:
@@ -116,6 +113,7 @@ if not api_key:
 
 client = Groq(api_key=api_key)
 
+# Display chat history
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
@@ -125,7 +123,7 @@ if "triage_prompt" in st.session_state:
     prompt = st.session_state.triage_prompt
     del st.session_state.triage_prompt 
 else:
-    prompt = st.chat_input("Describe your symptoms or ask a medical question...")
+    prompt = st.chat_input("Describe your symptoms...")
 
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -135,13 +133,13 @@ if prompt:
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing medical data..."):
+        with st.spinner("Doctor is thinking..."):
             try:
                 response = client.chat.completions.create(
                     messages=st.session_state.messages,
                     model="openai/gpt-oss-120b",
-                    temperature=0.3,
-                    max_tokens=800
+                    temperature=0.4, # Slightly higher temp makes it more conversational
+                    max_tokens=500
                 )
                 ai_response = response.choices[0].message.content
                 st.markdown(ai_response)
