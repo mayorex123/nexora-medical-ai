@@ -164,10 +164,10 @@ if chat_input or "triage_prompt" in st.session_state:
                     else:
                         api_messages.append(m)
 
-                # Use a stable, working vision model
+                # WORKING VISION MODEL (per Groq docs)
                 response = client.chat.completions.create(
                     messages=api_messages,
-                    model="llama-3.2-90b-vision-preview", # Reliable fallback vision model
+                    model="meta-llama/llama-4-scout-17b-16e-instruct",
                     temperature=0.4,
                     max_tokens=600
                 )
