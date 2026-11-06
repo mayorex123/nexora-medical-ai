@@ -4,6 +4,7 @@ import base64
 from groq import Groq
 from dotenv import load_dotenv
 from nexora.memory.history import save_message
+import streamlit.components.v1 as components
 
 # Load environment variables
 load_dotenv()
@@ -15,22 +16,18 @@ st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #FAFAFA; }
     .stChatMessage { background-color: #1E232B; border-radius: 12px; padding: 15px; margin-bottom: 10px; width: 100% !important; box-sizing: border-box !important; overflow-wrap: break-word !important; }
-    .stChatMessage p, .stChatMessage li, .stChatMessage span, .stChatMessage strong, .stChatMessage table, .stChatMessage th, .stChatMessage td { color: #FAFAFA !important; font-size: 1rem; }
+    .stChatMessage p, .stChatMessage li, .stChatMessage span, .stChatMessage strong { color: #FAFAFA !important; font-size: 1rem; }
     [data-testid="stSidebar"] { background-color: #161B22; }
     header { visibility: hidden; }
     footer { visibility: hidden; }
     
     /* FIX ANDROID CHAT INPUT TEXT VISIBILITY */
-    div[data-baseweb="input"] > div > input { 
+    div[data-baseweb="input"] > div > input, textarea[data-testid="stChatInputTextArea"] { 
         color: #FFFFFF !important; 
         background-color: #1E232B !important; 
         font-size: 16px !important; 
     }
     div[data-baseweb="input"] > div > input::placeholder { color: #A0AAB5 !important; }
-    /* Force chat input text area to be visible on all devices */
-    textarea[data-testid="stChatInputTextArea"] {
-        color: #FFFFFF !important;
-    }
     
     .stButton > button { background-color: #1E232B; color: #FAFAFA; border: 1px solid #4CAF50; border-radius: 8px; width: 100%; transition: 0.3s; }
     .stButton > button:hover { background-color: #4CAF50; color: white; }
@@ -95,46 +92,33 @@ for msg in st.session_state.messages:
             if "image" in msg:
                 st.image(msg["image"], width=300)
 
-# --- MULTIMODAL INPUT (Files + Voice inside Chat Box) ---
-# Using Streamlit's native accept_file puts the upload icon INSIDE the chat box
-chat_input = st.chat_input(
-    "Describe your symptoms...", 
-    accept_file=True, 
-    file_type=["jpg", "jpeg", "png"]
-)
+# --- MULTIMODAL INPUT (Files inside Chat Box) ---
+chat_input = st.chat_input("Describe your symptoms...", accept_file=True, file_type=["jpg", "jpeg", "png"])
 
-# Voice button as a tiny icon beside the chat input
-col1, col2 = st.columns([0.9, 0.1])
+# Tiny Voice Button
+col1, col2 = st.columns([0.92, 0.08])
 with col2:
-    # Tiny microphone button (uses browser speech recognition)
     voice_js = """
     <button onclick="startVoice()" style="background:transparent;border:none;font-size:20px;cursor:pointer;" title="Voice Input">🎤</button>
     <script>
     function startVoice() {
         if (window.hasOwnProperty('webkitSpeechRecognition')) {
             var rec = new webkitSpeechRecognition();
-            rec.continuous = false;
-            rec.interimResults = false;
-            rec.lang = "en-US";
+            rec.continuous = false; rec.interimResults = false; rec.lang = "en-US";
             rec.start();
             rec.onresult = function(e) {
                 const text = e.results[0][0].transcript;
-                // Find the chat textarea and inject text
                 const ta = window.parent.document.querySelector('textarea[data-testid="stChatInputTextArea"]');
-                if (ta) {
-                    ta.value = text;
-                    ta.dispatchEvent(new Event('input', { bubbles: true }));
-                }
+                if (ta) { ta.value = text; ta.dispatchEvent(new Event('input', { bubbles: true })); }
             };
         }
     }
     </script>
     """
-    st.components.v1.html(voice_js, height=40)
+    components.html(voice_js, height=40)
 
 # --- HANDLE INPUT ---
 if chat_input or "triage_prompt" in st.session_state:
-    # Determine the prompt source
     if "triage_prompt" in st.session_state:
         prompt_text = st.session_state.triage_prompt
         del st.session_state.triage_prompt
@@ -145,7 +129,6 @@ if chat_input or "triage_prompt" in st.session_state:
 
     user_content = prompt_text if prompt_text else "I have uploaded a medical image. Please analyze it."
     
-    # Process image
     image_data_uri = None
     if uploaded_file:
         base64_image = base64.b64encode(uploaded_file.read()).decode('utf-8')
@@ -181,10 +164,10 @@ if chat_input or "triage_prompt" in st.session_state:
                     else:
                         api_messages.append(m)
 
-                # WORKING VISION MODEL (replaces the decommissioned one)
+                # Use a stable, working vision model
                 response = client.chat.completions.create(
                     messages=api_messages,
-                    model="qwen/qwen3.6-27b", # Current multimodal model on Groq [citation:2]
+                    model="llama-3.2-90b-vision-preview", # Reliable fallback vision model
                     temperature=0.4,
                     max_tokens=600
                 )
